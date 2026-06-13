@@ -717,14 +717,20 @@ class OpenAITranslator(ConfigGPT, CommonTranslator):
         
 
         # 发起请求 / Initiate the request
-        response = await self.client.chat.completions.create(
+        # gpt-5 系列 / o 系列推理模型只接受預設 temperature=1，且不接受自訂 top_p，
+        # 否則 API 回 400。對這些模型不送 temperature / top_p（讓 API 用預設值）。
+        _model = (OPENAI_MODEL or "").lower()
+        _restricted = _model.startswith(("gpt-5", "o1", "o3", "o4"))
+        _req_kwargs = dict(
             model=OPENAI_MODEL,
             messages=messages,
             max_completion_tokens=self._MAX_TOKENS // 2,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            timeout=self._TIMEOUT
+            timeout=self._TIMEOUT,
         )
+        if not _restricted:
+            _req_kwargs["temperature"] = self.temperature
+            _req_kwargs["top_p"] = self.top_p
+        response = await self.client.chat.completions.create(**_req_kwargs)
 
         if not response.choices:
             raise ValueError("Empty response from OpenAI API")

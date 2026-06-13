@@ -1,32 +1,32 @@
-# 格式：源词[至少一个Tab/空格]目标词[至少一个Tab/空格][#注释 或 //注释]
+# 格式：源詞[至少一個Tab/空格]目標詞[至少一個Tab/空格][#註釋 或 //註釋]
 # Format: source term[at least one Tab/Space]target term[at least one Tab/Space][#comment or //comment]  
 
 # Anime Character Type
-傲娇	Tsundere	# 表面冷漠内心温柔的角色  
-元气少女	Genki Girl	# 活力充沛、乐观开朗的女孩角色  
-天然呆	Dandere	# 安静内向但可爱的角色  
+傲嬌	Tsundere	# 表面冷漠內心溫柔的角色  
+元氣少女	Genki Girl	# 活力充沛、樂觀開朗的女孩角色  
+天然呆	Dandere	# 安靜內向但可愛的角色  
 
 # Anime Term  
-萌化	Moe-fication	# 使事物更可爱  
-燃	Burning/Hype	# 热血沸腾的场景  
+萌化	Moe-fication	# 使事物更可愛  
+燃	Burning/Hype	# 熱血沸騰的場景  
 中二病	Chuunibyou	# 中二症候群  
 
 # Character Names and Gender
 野比大雄	Nobita Nobi	# 男  
-源静香	Shizuka Minamoto	# 女  
+源靜香	Shizuka Minamoto	# 女  
 灰原哀	Ai Haibara	# 女  
 工藤新一	Shinichi Kudo	# 男  
-路飞	Luffy	# male  
+路飛	Luffy	# male  
 娜美	Nami	# female  
-鸣人	Naruto	# male    
-小樱	Sakura	# female    
+鳴人	Naruto	# male    
+小櫻	Sakura	# female    
 
 # Regular Expression
-第([0-9]+)话	Episode $1	# 匹配集数  
-(男|女)主角	(Male|Female) Protagonist	# 主角类型  
-(轻小说|漫画|动画)	(Light Novel|Manga|Anime)	# 媒体类型  
+第([0-9]+)話	Episode $1	# 匹配集數  
+(男|女)主角	(Male|Female) Protagonist	# 主角類型  
+(輕小說|漫畫|動畫)	(Light Novel|Manga|Anime)	# 媒體類型  
 
 // ACG  
-同人志	Doujinshi	// 粉丝创作的作品  
-御宅族	Otaku	// 动漫爱好者  
-声优	Voice Actor	// 配音演员  
+同人誌	Doujinshi	// 粉絲創作的作品  
+御宅族	Otaku	// 動漫愛好者  
+聲優	Voice Actor	// 配音演員  

@@ -8,7 +8,8 @@ services:
     image: manga-image-translator:cu128
     container_name: manga_image_translator_gpu
     entrypoint: python
-    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu
+    # --nonce None 停用 nonce 檢查（這個映像的前端不送 X-Nonce，否則會 401: Nonce does not match）
+    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu --nonce None
     volumes:
       - ./result:/app/result
       - ./server/main.py:/app/server/main.py
@@ -17,6 +18,8 @@ services:
       - ./manga_translator:/app/manga_translator
       # 讓 server 也能讀到本地 GPT config
       - ./gpt_config.local.yaml:/app/gpt_config.local.yaml
+      # 用 host 上轉成繁體的 dict（glossary 等）覆蓋映像內的簡體版
+      - ./dict:/app/dict
     ports:
       - 5003:5003
     ipc: host
