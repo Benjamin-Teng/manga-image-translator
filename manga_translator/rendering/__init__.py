@@ -106,10 +106,11 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
 
             if needed_rows > used_rows:
                 scale_x = ((needed_rows - used_rows) / used_rows) * 1 + 1
-                try:  
+                try:
                     poly = Polygon(region.unrotated_min_rect[0])
                     minx, miny, maxx, maxy = poly.bounds
-                    poly = affinity.scale(poly, xfact=scale_x, yfact=1.0, origin=(minx, miny))        
+                    # 譯文太長 → 往下加高框讓它換行(保持寬度不變)，而非加寬撐出圖外
+                    poly = affinity.scale(poly, xfact=1.0, yfact=scale_x, origin=(minx, miny))        
                 
                     pts = np.array(poly.exterior.coords[:4])  
                     dst_points = rotate_polygons(  
@@ -117,8 +118,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
                         to_int=False  
                     ).reshape(-1, 4, 2)  
                     # 移除边界限制，允许文本超出检测框边界
-                    # dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
-                    # dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
+                    dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
+                    dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
                     dst_points = dst_points.astype(np.int64)
                     single_axis_expanded = True
                     # logger.debug(f"Successfully expanded horizontal text width: xfact={scale_x:.2f}")  
@@ -150,8 +151,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
                         to_int=False  
                     ).reshape(-1, 4, 2)  
                     # 移除边界限制，允许文本超出检测框边界
-                    # dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
-                    # dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
+                    dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
+                    dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
                     dst_points = dst_points.astype(np.int64)
                     single_axis_expanded = True
                     # logger.debug(f"Successfully expanded vertical text width: xfact={scale_x:.2f}")  
@@ -214,8 +215,8 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
 
                     dst_points = rotate_polygons(region.center, scaled_unrotated_points.reshape(1, -1), -region.angle, to_int=False).reshape(-1, 4, 2)  
                     # 移除边界限制，允许文本超出检测框边界
-                    # dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
-                    # dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
+                    dst_points[..., 0] = dst_points[..., 0].clip(0, img.shape[1] - 1)  
+                    dst_points[..., 1] = dst_points[..., 1].clip(0, img.shape[0] - 1)  
                     dst_points = dst_points.astype(np.int64)  
                     dst_points = dst_points.reshape((-1, 4, 2))  
                     # logger.debug(f"Finished calculating scaled dst_points.")  
