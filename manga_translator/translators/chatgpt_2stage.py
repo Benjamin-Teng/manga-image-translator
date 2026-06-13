@@ -10,6 +10,20 @@ from ..utils import Context
 from .keys import OPENAI_API_KEY, OPENAI_MODEL
 
 
+def _gpt_sampling_kwargs(model, temperature=None, top_p=None):
+    """gpt-5 系列 / o 系列推理模型只接受預設 temperature=1、不接受自訂 top_p，
+    否則 API 回 400。對這些模型不送 temperature / top_p（讓 API 用預設值）。"""
+    m = (model or "").lower()
+    if m.startswith(("gpt-5", "o1", "o3", "o4")):
+        return {}
+    kw = {}
+    if temperature is not None:
+        kw["temperature"] = temperature
+    if top_p is not None:
+        kw["top_p"] = top_p
+    return kw
+
+
 def encode_image(image):
     max_dim = 1024
     w, h = image.size
@@ -217,9 +231,9 @@ class ChatGPT2StageTranslator(OpenAITranslator):
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                         ]}
                     ],
-                    temperature=self.refine_temperature,
                     max_completion_tokens=self.max_tokens,
                     response_format=self.REFINE_RESPONSE_SCHEMA,
+                    **_gpt_sampling_kwargs(self._fallback_model, self.refine_temperature),
                 )
 
                 if response_fb and response_fb.choices and response_fb.choices[0].message.content:
@@ -272,9 +286,9 @@ class ChatGPT2StageTranslator(OpenAITranslator):
                         {"role": "system", "content": self._get_batch_refine_system_instruction(from_lang)},
                         {"role": "user", "content": user_content}
                     ],
-                    temperature=self.refine_temperature,
                     max_completion_tokens=self.max_tokens,
                     response_format=self.BATCH_REFINE_RESPONSE_SCHEMA,
+                    **_gpt_sampling_kwargs(self._fallback_model, self.refine_temperature),
                 )
 
                 if response_fb and response_fb.choices and response_fb.choices[0].message.content:
@@ -403,9 +417,9 @@ class ChatGPT2StageTranslator(OpenAITranslator):
                                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
                             ]}
                         ],
-                        temperature=self.refine_temperature,
                         max_completion_tokens=self.max_tokens,
                         response_format=self.REFINE_RESPONSE_SCHEMA,
+                        **_gpt_sampling_kwargs(self.stage1_model, self.refine_temperature),
                     )
                     
                     if response and response.choices and response.choices[0].message.content:
@@ -926,10 +940,9 @@ class ChatGPT2StageTranslator(OpenAITranslator):
         response = await self.client.chat.completions.create(
             model=model_to_use,
             messages=messages,
-            max_tokens=self._MAX_TOKENS // 2,
-            temperature=self.temperature,
-            top_p=self.top_p,
-            timeout=self._TIMEOUT
+            max_completion_tokens=self._MAX_TOKENS // 2,
+            timeout=self._TIMEOUT,
+            **_gpt_sampling_kwargs(model_to_use, self.temperature, self.top_p),
         )
 
         if not response.choices:
@@ -1138,9 +1151,9 @@ class ChatGPT2StageTranslator(OpenAITranslator):
                             {"role": "system", "content": self._get_batch_refine_system_instruction(from_lang)},
                             {"role": "user", "content": user_content}
                         ],
-                        temperature=self.refine_temperature,
                         max_completion_tokens=self.max_tokens,
                         response_format=self.BATCH_REFINE_RESPONSE_SCHEMA,
+                        **_gpt_sampling_kwargs(self.stage1_model, self.refine_temperature),
                     )
 
                     if response and response.choices and response.choices[0].message.content:
