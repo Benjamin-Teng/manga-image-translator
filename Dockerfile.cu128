@@ -1,0 +1,11 @@
+# GPU 升級版：在官方映像上疊一層，把 PyTorch 換成支援 RTX 5090 / Blackwell (sm_120) 的 CUDA 12.8 build
+# 官方映像內建 torch 2.5.1+cu118，最高只支援 sm_90，認不得 sm_120。
+FROM zyddnys/manga-image-translator:main
+
+# 換成 cu128 (CUDA 12.8) 版本，torch 2.8.x 起支援 sm_120 (Blackwell)
+RUN pip install --no-cache-dir --force-reinstall \
+        torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 \
+        --index-url https://download.pytorch.org/whl/cu128
+
+# 啟動時驗證：印出 torch 版本與支援的 GPU 架構（build log 可見），方便確認 sm_120 已納入
+RUN python -c "import torch; print('built torch:', torch.__version__); print('arch_list:', torch.cuda.get_arch_list())"

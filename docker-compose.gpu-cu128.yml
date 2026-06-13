@@ -1,0 +1,26 @@
+# GPU (RTX 5090 / Blackwell) 升級版 compose
+# 用法： docker compose -f docker-compose.gpu-cu128.yml up -d --build
+services:
+  manga_image_translator:
+    build:
+      context: .
+      dockerfile: Dockerfile.cu128
+    image: manga-image-translator:cu128
+    container_name: manga_image_translator_gpu
+    entrypoint: python
+    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu
+    volumes:
+      - ./result:/app/result
+      - ./server/main.py:/app/server/main.py
+      - ./server/instance.py:/app/server/instance.py
+    ports:
+      - 5003:5003
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    # API key / 模型設定統一從 repo 根目錄的 .env 讀取
+    env_file:
+      - ./.env
