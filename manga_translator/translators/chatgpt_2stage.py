@@ -335,6 +335,16 @@ class ChatGPT2StageTranslator(OpenAITranslator):
         self._is_stage2_translation = False
         self._stage2_image_base64 = None
         self._stage2_use_fallback = False  # 新增：Stage2回退模型激活标志
+
+        # Phase 1: per-manga 名稱記憶 glossary（設了 env MT_NAME_GLOSSARY 才啟用）
+        # 載入既有譯名 → 併入 glossary_entries → 由現有 extract_relevant_terms 注入(建議制)
+        self._name_glossary_path = os.getenv('MT_NAME_GLOSSARY')
+        if self._name_glossary_path and os.path.exists(self._name_glossary_path):
+            try:
+                for src, entry in self.load_glossary(self._name_glossary_path).items():
+                    self.glossary_entries.setdefault(src, entry)
+            except Exception:
+                pass
         
         # Check model configuration and warn once
         if not hasattr(ChatGPT2StageTranslator, '_warned_about_model'):
@@ -526,7 +536,10 @@ class ChatGPT2StageTranslator(OpenAITranslator):
             final_translations = self._remap_translations_to_original_positions(
                 reordered_translations, original_position_mapping
             )
-            
+
+            # Phase 1: 累積 per-manga 名稱記憶(只在設了 MT_NAME_GLOSSARY 時; fail-soft)
+            await self._update_name_glossary(reordered_texts, reordered_translations)
+
             self.logger.info(f"2-stage translation completed: {len(queries)} texts processed with position mapping")
             self.logger.debug(f"Final translations in original order: {len(final_translations)} results")
             return final_translations
@@ -534,6 +547,27 @@ class ChatGPT2StageTranslator(OpenAITranslator):
         except Exception as e:
             self.logger.error(f"2-stage translation failed: {e}. Falling back to single-stage.")
             return await super()._translate(from_lang, to_lang, queries)
+
+    async def _update_name_glossary(self, sources, translations):
+        """Phase 1: 抽取本頁人事地物專名，以「第一次為準 + 嚴格1to1」累積到 per-manga glossary。
+        新譯名也即時併入 self.glossary_entries，讓本批次後續頁面立即沿用。全程 fail-soft。"""
+        if not getattr(self, '_name_glossary_path', None):
+            return
+        try:
+            from . import glossary_memory
+            pairs = list(zip(sources, translations))
+            found = await glossary_memory.extract_names(self.client, OPENAI_MODEL, pairs)
+            new_entries = []
+            for src, tgt, typ in found:
+                # 嚴格 1-to-1：完全相同的原文才算重複；相似拼寫(luka/luca)各自獨立
+                if src and src not in self.glossary_entries:
+                    self.glossary_entries[src] = f"{tgt} #{typ}" if typ else tgt
+                    new_entries.append((src, tgt, typ))
+            if new_entries:
+                glossary_memory.append_entries(self._name_glossary_path, new_entries)
+                self.logger.info(f"[name-glossary] +{len(new_entries)} new proper noun(s)")
+        except Exception as e:
+            self.logger.debug(f"name-glossary update skipped: {e}")
 
     def _process_refine_output(self, refine_output: List[str]) -> List[str]:
         """
