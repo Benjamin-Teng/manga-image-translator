@@ -106,11 +106,14 @@ def resize_regions_to_font_size(img: np.ndarray, text_regions: List['TextBlock']
 
             if needed_rows > used_rows:
                 scale_x = ((needed_rows - used_rows) / used_rows) * 1 + 1
+                # 限制加高倍數，避免框脹太大撞到相鄰文字塊(超過的部分由下游縮字吸收)
+                scale_x = min(scale_x, 1.3)
                 try:
                     poly = Polygon(region.unrotated_min_rect[0])
                     minx, miny, maxx, maxy = poly.bounds
-                    # 譯文太長 → 往下加高框讓它換行(保持寬度不變)，而非加寬撐出圖外
-                    poly = affinity.scale(poly, xfact=1.0, yfact=scale_x, origin=(minx, miny))        
+                    # 譯文太長 → 加高框讓它換行(保持寬度不變)，而非加寬撐出圖外
+                    # 從中心加高：文字維持在原位附近、上下各長一半，減少撞到相鄰文字塊
+                    poly = affinity.scale(poly, xfact=1.0, yfact=scale_x, origin='center')        
                 
                     pts = np.array(poly.exterior.coords[:4])  
                     dst_points = rotate_polygons(  
