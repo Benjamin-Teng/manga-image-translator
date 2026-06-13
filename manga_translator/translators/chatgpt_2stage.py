@@ -560,7 +560,8 @@ class ChatGPT2StageTranslator(OpenAITranslator):
             new_entries = []
             for src, tgt, typ in found:
                 # 嚴格 1-to-1：完全相同的原文才算重複；相似拼寫(luka/luca)各自獨立
-                if src and src not in self.glossary_entries:
+                # 跳過「譯名==原文」(代表這頁根本沒翻該名字)，避免把未翻名字學進去強化錯誤
+                if src and tgt and tgt != src and src not in self.glossary_entries:
                     self.glossary_entries[src] = f"{tgt} #{typ}" if typ else tgt
                     new_entries.append((src, tgt, typ))
             if new_entries:

@@ -51,9 +51,10 @@ class ConfigGPT:
         '- Determine appropriate pronouns (他/她/我/你/你们/he/she/me/you) from context; do not add pronouns that do not exist in the original text.\n'  
         '- Refine based on the conclusions from the second step.\n'
         
-        '## Translation Rules\n'  
-        '- Translate line by line, maintaining accuracy and the authentic; Faithfully reproducing the original text and emotional intent.\n'          
-        '- Preserve original gibberish or sound effects without translation.\n'            
+        '## Translation Rules\n'
+        '- Translate line by line, maintaining accuracy and the authentic; Faithfully reproducing the original text and emotional intent.\n'
+        '- Render ALL proper names (people, places, organizations, named things) into {to_lang}: phonetically transliterate Japanese names written in kana or kanji into {to_lang}. NEVER leave Japanese kana/kanji of a name untranslated in the output (this does NOT apply to sound effects).\n'
+        '- Preserve original gibberish or sound effects without translation.\n'
         '- Output each segment with its prefix (<|number|> format exactly) and only provide the translation without raw text.\n'  
         '- Translate content only—no additional interpretation or commentary.\n'  
         
