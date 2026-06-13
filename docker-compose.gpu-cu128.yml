@@ -14,6 +14,7 @@ services:
       - ./result:/app/result
       - ./server/main.py:/app/server/main.py
       - ./server/instance.py:/app/server/instance.py
+      - ./server/index.html:/app/server/index.html
       # 用 host 上較新的 fork 程式碼覆蓋映像內的舊版（修正 max_tokens→max_completion_tokens 等）
       - ./manga_translator:/app/manga_translator
       # 讓 server 也能讀到本地 GPT config

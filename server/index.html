@@ -812,10 +812,10 @@
           'rendering': 9,
           'finished': 10
         },
-        detectionResolution: "1536",
+        detectionResolution: "2048",
         textDetector: "default",
         renderTextDirection: "auto",
-        translator: "youdao",
+        translator: "chatgpt_2stage",
         validTranslators: [
           "youdao",
           "baidu",
@@ -825,6 +825,7 @@
           "sakura",
           "offline",
           "openai",
+          "chatgpt_2stage",
           "deepseek",
           "groq",
           "gemini",
@@ -844,9 +845,11 @@
         ],
         getTranslatorName(key) {
           if (key === "none") return "No Text";
+          if (key === "chatgpt_2stage") return "ChatGPT 2-Stage";
+          if (key === "openai") return "OpenAI";
           return key ? key[0].toUpperCase() + key.slice(1) : "";
         },
-        targetLanguage: "CHS",
+        targetLanguage: "CHT",
         inpaintingSize: "2048",
         customUnclipRatio: 2.3,
         customBoxThreshold: 0.7,
@@ -863,7 +866,7 @@
         // Settings persistence
         loadSettings() {
           try {
-            const saved = localStorage.getItem('manga-translator-settings');
+            const saved = localStorage.getItem('manga-translator-settings-golden');
             if (saved) {
               const settings = JSON.parse(saved);
               if (settings.detectionResolution) this.detectionResolution = settings.detectionResolution;
@@ -896,7 +899,7 @@
               maskDilationOffset: this.maskDilationOffset,
               inpainter: this.inpainter,
             };
-            localStorage.setItem('manga-translator-settings', JSON.stringify(settings));
+            localStorage.setItem('manga-translator-settings-golden', JSON.stringify(settings));
           } catch (error) {
             console.warn('Failed to save settings:', error);
           }
@@ -1221,7 +1224,13 @@
             "unclip_ratio": ${this.customUnclipRatio}
           },
           "render": {
-            "direction": "${this.renderTextDirection}"
+            "direction": "${this.renderTextDirection}",
+            "font_size_minimum": 6,
+            "font_size_offset": -5
+          },
+          "ocr": {
+            "ocr": "48px",
+            "prob": 0.0
           },
           "translator": {
             "translator": "${this.translator}",
