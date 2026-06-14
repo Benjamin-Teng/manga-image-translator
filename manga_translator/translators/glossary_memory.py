@@ -116,16 +116,26 @@ def load_pairs(path):
 
 
 def append_entries(path, entries):
-    """append 新名詞到 per-manga glossary(mit 格式)。entries: list[(src,tgt,type)]。"""
+    """append 新名詞到 per-manga glossary(mit 格式)。entries: list[(src,tgt,type)]。
+    也比對「檔案現有內容」去重(第一次為準)，避免同一原文被重複寫入。"""
     if not path or not entries:
         return
     try:
+        existing = load_pairs(path)          # 已在檔案裡的原文(完全相同比對)
+        seen = set(existing)
+        to_write = []
+        for src, tgt, typ in entries:
+            if src not in seen:              # 嚴格 1-to-1：完全相同原文才算重複
+                seen.add(src)
+                to_write.append((src, tgt, typ))
+        if not to_write:
+            return
         new_file = not os.path.exists(path)
         with open(path, "a", encoding="utf-8", newline="\n") as f:
             if new_file:
                 f.write("# Auto proper-noun glossary (manga-translator Phase 1). "
                         "First occurrence wins; edit freely.\n")
-            for src, tgt, typ in entries:
+            for src, tgt, typ in to_write:
                 tag = f"\t#{typ}" if typ else ""
                 f.write(f"{src}\t{tgt}{tag}\n")
     except Exception:
