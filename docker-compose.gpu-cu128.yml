@@ -7,9 +7,19 @@ services:
       dockerfile: Dockerfile.cu128
     image: manga-image-translator:cu128
     container_name: manga_image_translator_gpu
-    entrypoint: python
-    # --nonce None 停用 nonce 檢查（這個映像的前端不送 X-Nonce，否則會 401: Nonce does not match）
-    command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu --nonce None
+    # 預設：只讓容器常駐，不自動啟動 web server。
+    # translate.local.bat 只用 `docker exec`（不碰 port 5003），所以容器活著即可。
+    # 這樣翻譯時 GPU 只有 CLI「一個」CUDA / GPU-PV 客戶端，避免 server 的常駐
+    # `manga_translator shared` worker 多疊一個 context，降低 dxgkrnl 死結機率（見 crash-report.md）。
+    entrypoint: ["tail", "-f", "/dev/null"]
+    #
+    # 想用網頁前端 (port 5003) 時，手動起 server（用完按 Ctrl+C 或重啟容器即可關掉）：
+    #   docker exec -d manga_image_translator_gpu python server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu --nonce None
+    #
+    # 原本「容器一起來就自動跑 server」的設定保留在下面，要改回把上面 entrypoint 註解掉、解開這兩行即可：
+    #   --nonce None 停用 nonce 檢查（這個映像的前端不送 X-Nonce，否則會 401: Nonce does not match）
+    # entrypoint: python
+    # command: server/main.py --verbose --start-instance --host=0.0.0.0 --port=5003 --use-gpu --nonce None
     volumes:
       - ./result:/app/result
       - ./server/main.py:/app/server/main.py
