@@ -9,6 +9,7 @@ from PIL import Image
 import psutil
 
 from manga_translator import MangaTranslator, Context, TranslationInterrupt, Config
+from ..animation import load_animation, build_overlay, apply_overlay, overlay_coverage
 from ..save import save_result
 from ..translators import (
     LanguageUnsupportedException,
@@ -81,6 +82,39 @@ class MangaTranslatorLocal(MangaTranslator):
         self.prep_manual = params.get('prep_manual', None)
         self.batch_size = params.get('batch_size', 1)
         self.disable_memory_optimization = params.get('disable_memory_optimization', False)
+
+    # Fraction of changed pixels above which the overlay effectively freezes the
+    # animation -- happens when the colorizer rewrites the whole frame.
+    ANIM_FREEZE_WARN_COVERAGE = 0.5
+
+    def _attach_animation(self, ctx: Context, path: str) -> bool:
+        """Attach translated animation frames to `ctx`. False if `path` is static.
+
+        The pipeline has already run on frame 0; the pixels it changed become an
+        overlay that is composited onto every frame, so detection, OCR and
+        translation each happen exactly once.
+        """
+        anim = load_animation(path)
+        if anim is None:
+            return False
+
+        if ctx.img_rgb is not None and ctx.img_rendered is not None:
+            overlay = build_overlay(ctx.img_rgb, ctx.img_rendered, anim.frames[0].size)
+            coverage = overlay_coverage(overlay)
+            if coverage > self.ANIM_FREEZE_WARN_COVERAGE:
+                logger.warning(
+                    f'The translation changed {coverage:.0%} of the frame, so most of '
+                    f'the animation will be frozen to the first frame. This usually '
+                    f'means the colorizer or another whole-image filter is enabled.'
+                )
+            anim = apply_overlay(anim, overlay)
+        else:
+            logger.info('No rendered text for this animation; re-encoding frames as-is.')
+
+        ctx.anim_frames = anim.frames
+        ctx.anim_durations = anim.durations
+        ctx.anim_loop = anim.loop
+        return True
 
     async def translate_path(self, path: str, dest: str = None, params: dict[str, Union[int, str]] = None):
         """
@@ -249,9 +283,7 @@ class MangaTranslatorLocal(MangaTranslator):
                 f.write('\n'.join(translated_sentences))
             return True
 
-        # TODO: Add .gif handler
-
-        else:  # Treat as image
+        else:  # Treat as image (animated inputs are handled after translation)
             try:
                 img = Image.open(path)
                 img.verify()
@@ -263,6 +295,10 @@ class MangaTranslatorLocal(MangaTranslator):
             # 直接翻译图片，不再需要传递文件名
             ctx = await self.translate(img, config)
             result = ctx.result
+
+            # For animated input the pipeline above ran on the first frame only;
+            # replay what it changed onto every frame.
+            self._attach_animation(ctx, path)
 
             # TODO
             # Proper way to use the config but for now juste pass what we miss here ton ctx
@@ -342,6 +378,7 @@ class MangaTranslatorLocal(MangaTranslator):
         
         # 收集所有需要翻译的图片文件
         image_tasks = []
+        animated_tasks = []
         for root, subdirs, files in os.walk(path):
             files = natural_sort(files)
             dest_root = replace_prefix(root, path, dest)
@@ -366,16 +403,23 @@ class MangaTranslatorLocal(MangaTranslator):
                     img = Image.open(file_path)
                     img.verify()
                     img = Image.open(file_path)  # 重新打开因为verify会关闭文件
+                    if getattr(img, 'is_animated', False):
+                        # Animated inputs need per-file frame handling; batching
+                        # them would hold every frame of every file in memory.
+                        animated_tasks.append((file_path, output_dest))
+                        continue
                     image_tasks.append((img, config, file_path, output_dest))
                 except Exception as e:
                     logger.warning(f'Failed to open image: {file_path}, error: {e}')
                     continue
-        
-        if not image_tasks:
+
+        if not image_tasks and not animated_tasks:
             logger.info('No images found to translate, use --overwrite to write over existing translations.')
             return
-            
-        logger.info(f'Found {len(image_tasks)} images to translate')
+
+        logger.info(f'Found {len(image_tasks)} images to translate'
+                    + (f' (+{len(animated_tasks)} animated, handled individually)'
+                       if animated_tasks else ''))
         
         # 简化的内存优化策略
         base_batch_size = self.batch_size
@@ -544,7 +588,18 @@ class MangaTranslatorLocal(MangaTranslator):
             
             # 移动到下一批次
             i += current_batch_size
-            
+
+        # Animated files sat out the batch loop; translate them one at a time.
+        for file_path, output_dest in animated_tasks:
+            logger.info(f'Translating animated file separately: "{file_path}"')
+            try:
+                if await self.translate_file(file_path, output_dest, params, config):
+                    translated_count += 1
+            except Exception as e:
+                logger.error(e)
+                if not self.ignore_errors:
+                    raise
+
         # 最终报告
         total_time = time.time() - start_time  # 计算总耗时
         
