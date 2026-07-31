@@ -146,3 +146,19 @@ def test_apply_overlay_leaves_untouched_pixels_animating(tmp_path):
     out = apply_overlay(anim, overlay)
     corners = [tuple(np.array(f)[20, 30][:3]) for f in out.frames]
     assert len(set(corners)) > 1
+
+
+def test_is_animated_path_detects_animation(tmp_path):
+    from manga_translator.animation import is_animated_path
+    anim = _write_anim(tmp_path / 'a.webp', _make_frames(3))
+    static = tmp_path / 's.png'
+    Image.new('RGB', (10, 10), 'white').save(static)
+    assert is_animated_path(anim) is True
+    assert is_animated_path(str(static)) is False
+
+
+def test_is_animated_path_is_false_for_unreadable_file(tmp_path):
+    bad = tmp_path / 'notanimage.txt'
+    bad.write_text('hello')
+    from manga_translator.animation import is_animated_path
+    assert is_animated_path(str(bad)) is False

@@ -118,6 +118,7 @@ parser_batch = subparsers.add_parser('local', help='Run in batch translation mod
 parser_batch.add_argument('-i', '--input', required=True, type=path, nargs='+', help='Path to an image folder')
 parser_batch.add_argument('-o', '--dest', default='', type=str, help='Path to the destination folder for translated images')
 parser_batch.add_argument('-f', '--format', default=None, choices=OUTPUT_FORMATS, help='Output format of the translation.')
+parser_batch.add_argument('--anim-format', default=None, choices=OUTPUT_FORMATS, help='Output format for animated inputs only, leaving static images alone. Use "gif" when the result has to play in a phone gallery, which usually cannot animate WebP.')
 parser_batch.add_argument('--overwrite', action='store_true', help='Overwrite already translated images')
 parser_batch.add_argument('--skip-no-text', action='store_true', help='Skip image without text (Will not be saved).')
 parser_batch.add_argument('--use-mtpe', action='store_true', help='Turn on/off machine translation post editing (MTPE) on the command line (works only on linux right now)')

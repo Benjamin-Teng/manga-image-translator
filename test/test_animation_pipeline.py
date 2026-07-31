@@ -72,3 +72,29 @@ def test_attach_animation_without_render_keeps_frames_unchanged(tmp_path):
     ctx = Context()
     assert translator._attach_animation(ctx, path) is True
     assert len(ctx.anim_frames) == 4
+
+
+def test_output_ext_prefers_anim_format_for_animated_input(tmp_path):
+    path = _write_anim(tmp_path / 'a.webp', n=3)
+    translator = MangaTranslatorLocal({'kernel_size': 3, 'anim_format': 'gif'})
+    assert translator._output_ext(path, None, 'webp') == 'gif'
+
+
+def test_output_ext_leaves_static_input_alone(tmp_path):
+    static = tmp_path / 's.png'
+    Image.new('RGB', (10, 10), 'white').save(static)
+    translator = MangaTranslatorLocal({'kernel_size': 3, 'anim_format': 'gif'})
+    assert translator._output_ext(str(static), None, 'png') == 'png'
+
+
+def test_output_ext_without_anim_format_keeps_source_ext(tmp_path):
+    path = _write_anim(tmp_path / 'a.webp', n=3)
+    translator = MangaTranslatorLocal({'kernel_size': 3})
+    assert translator._output_ext(path, None, 'webp') == 'webp'
+
+
+def test_explicit_format_still_wins_for_static(tmp_path):
+    static = tmp_path / 's.png'
+    Image.new('RGB', (10, 10), 'white').save(static)
+    translator = MangaTranslatorLocal({'kernel_size': 3, 'anim_format': 'gif'})
+    assert translator._output_ext(str(static), 'jpg', 'png') == 'jpg'

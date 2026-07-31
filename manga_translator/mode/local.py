@@ -9,7 +9,9 @@ from PIL import Image
 import psutil
 
 from manga_translator import MangaTranslator, Context, TranslationInterrupt, Config
-from ..animation import load_animation, build_overlay, apply_overlay, overlay_coverage
+from ..animation import (
+    load_animation, build_overlay, apply_overlay, overlay_coverage, is_animated_path,
+)
 from ..save import save_result
 from ..translators import (
     LanguageUnsupportedException,
@@ -82,6 +84,18 @@ class MangaTranslatorLocal(MangaTranslator):
         self.prep_manual = params.get('prep_manual', None)
         self.batch_size = params.get('batch_size', 1)
         self.disable_memory_optimization = params.get('disable_memory_optimization', False)
+        self.anim_format = params.get('anim_format', None)
+
+    def _output_ext(self, src_path: str, file_ext: str, src_ext: str) -> str:
+        """Output extension for `src_path`.
+
+        --anim-format applies only to animated inputs, so a folder of static
+        manga pages with a few animated ones can send the animations to GIF
+        (playable in a phone gallery) without turning every page into one.
+        """
+        if self.anim_format and is_animated_path(src_path):
+            return self.anim_format
+        return file_ext or src_ext
 
     # Fraction of changed pixels above which the overlay effectively freezes the
     # animation -- happens when the colorizer rewrites the whole frame.
@@ -163,17 +177,18 @@ class MangaTranslatorLocal(MangaTranslator):
             if not dest:
                 # Use the same folder as the source
                 p, ext = os.path.splitext(path)
-                _dest = f'{p}-translated.{file_ext or ext[1:]}'
+                _dest = f'{p}-translated.{self._output_ext(path, file_ext, ext[1:])}'
             elif not os.path.basename(dest):
                 p, ext = os.path.splitext(os.path.basename(path))
+                out_ext = self._output_ext(path, file_ext, ext[1:])
                 # If the folders differ use the original filename from the source
                 if os.path.dirname(path) != dest:
-                    _dest = os.path.join(dest, f'{p}.{file_ext or ext[1:]}')
+                    _dest = os.path.join(dest, f'{p}.{out_ext}')
                 else:
-                    _dest = os.path.join(dest, f'{p}-translated.{file_ext or ext[1:]}')
+                    _dest = os.path.join(dest, f'{p}-translated.{out_ext}')
             else:
                 p, ext = os.path.splitext(dest)
-                _dest = f'{p}.{file_ext or ext[1:]}'
+                _dest = f'{p}.{self._output_ext(path, file_ext, ext[1:])}'
             await self.translate_file(path, _dest, params,config)
 
         elif os.path.isdir(path):
@@ -202,7 +217,7 @@ class MangaTranslatorLocal(MangaTranslator):
                         file_path = os.path.join(root, f)
                         output_dest = replace_prefix(file_path, path, _dest)
                         p, ext = os.path.splitext(output_dest)
-                        output_dest = f'{p}.{file_ext or ext[1:]}'
+                        output_dest = f'{p}.{self._output_ext(file_path, file_ext, ext[1:])}'
                         try:
                             if await self.translate_file(file_path, output_dest, params, config):
                                 translated_count += 1
@@ -391,7 +406,7 @@ class MangaTranslatorLocal(MangaTranslator):
                 file_path = os.path.join(root, f)
                 output_dest = replace_prefix(file_path, path, dest)
                 p, ext = os.path.splitext(output_dest)
-                output_dest = f'{p}.{file_ext or ext[1:]}'
+                output_dest = f'{p}.{self._output_ext(file_path, file_ext, ext[1:])}'
                 
                 # 检查是否需要跳过已翻译的文件
                 if not params.get('overwrite') and os.path.exists(output_dest):

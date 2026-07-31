@@ -27,6 +27,19 @@ class Animation:
     loop: int                   # 0 == infinite
 
 
+def is_animated_path(path: str) -> bool:
+    """Whether `path` holds more than one frame, without decoding them all.
+
+    Used to pick the output extension before translation starts, so a mixed
+    folder can send animations to GIF while static pages keep their format.
+    """
+    try:
+        with Image.open(path) as img:
+            return bool(getattr(img, 'is_animated', False))
+    except Exception:
+        return False
+
+
 def load_animation(path: str) -> Optional[Animation]:
     """Return an Animation, or None when `path` is not an animated image."""
     with Image.open(path) as img:

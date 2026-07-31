@@ -104,8 +104,21 @@ Self-contained, depends only on PIL and numpy, testable in isolation.
 | File | Change | Size |
 |---|---|---|
 | `save.py` | add `GifFormat`; make `ImageFormat` animation-aware | ~25 lines |
-| `mode/local.py` | animation branch in `_translate_file`; route animated files out of the batch collector at `local.py:344-372` | ~20 lines |
-| `args.py` | none — `--format` choices derive from `OUTPUT_FORMATS`, so registering `GifFormat` exposes `gif` automatically | 0 lines |
+| `mode/local.py` | animation branch in `_translate_file`; `_output_ext()` for the extension decision; route animated files out of the batch collector | ~35 lines |
+| `args.py` | add `--anim-format`; `--format` choices derive from `OUTPUT_FORMATS`, so registering `GifFormat` exposes `gif` automatically | 1 line |
+
+### `--anim-format`
+
+`--format` applies to every file, so forcing GIF to get phone-playable output
+would also turn static manga pages into 256-colour GIFs. `--anim-format` applies
+only to inputs that actually hold more than one frame, leaving static pages at
+their own extension. `is_animated_path()` answers that without decoding every
+frame, so it is cheap enough to run while the output paths are still being
+planned.
+
+The bat launchers default to `--anim-format gif`, since playing back on a phone
+is the reason this feature exists; `MT_ANIM_FORMAT=webp` keeps full colour and
+`MT_ANIM_FORMAT=none` restores the source extension.
 
 ### Data flow
 
