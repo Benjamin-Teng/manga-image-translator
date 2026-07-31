@@ -34,6 +34,64 @@ def fg_bg_compare(fg, bg):
         bg = (255, 255, 255) if fg_avg <= 127 else (0, 0, 0)
     return fg, bg
 
+# WCAG relative-luminance contrast below which text is considered unreadable.
+# 4.5 is the AA threshold; manga glyphs are large but often sit on busy artwork.
+MIN_CONTRAST_RATIO = 4.5
+
+# How much more readable black must be before it is preferred over white on a
+# canvas that failed the check above. Such a canvas is dark by definition, and
+# manga letters dark art with light glyphs, so white is the better reconstruction
+# whenever the two score about the same.
+BLACK_PREFERENCE_MARGIN = 1.15
+
+def relative_luminance(rgb) -> float:
+    c = np.asarray(rgb, dtype=np.float64) / 255.0
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    return float(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2])
+
+def contrast_ratio(rgb1, rgb2) -> float:
+    l1, l2 = relative_luminance(rgb1), relative_luminance(rgb2)
+    lighter, darker = max(l1, l2), min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
+
+def canvas_color(img, dst_points):
+    """Median colour of the inpainted canvas the glyphs will be drawn onto."""
+    mask = np.zeros(img.shape[:2], dtype=np.uint8)
+    cv2.fillConvexPoly(mask, dst_points.reshape(-1, 2).astype(np.int32), 1)
+    px = img[mask.astype(bool)]
+    if px.size == 0:
+        return None
+    return np.median(px[:, :3], axis=0)
+
+def ensure_readable_fg(img, dst_points, fg, bg):
+    """Keep the glyph fill readable against the art it lands on.
+
+    The OCR colour head reports a single near-black colour for most regions
+    (it tends to latch onto the glyph outline rather than its fill), which is
+    right for black-on-white bubbles but renders dark-on-dark for the
+    white-text-on-coloured-bubble case. Only override when the detected colour
+    genuinely fails contrast, so hand-tuned colours survive untouched.
+    """
+    canvas = canvas_color(img, dst_points)
+    if canvas is None:
+        return fg, bg
+    current = contrast_ratio(fg, canvas)
+    if current >= MIN_CONTRAST_RATIO:
+        return fg, bg
+    white_ratio = contrast_ratio((255, 255, 255), canvas)
+    black_ratio = contrast_ratio((0, 0, 0), canvas)
+    if black_ratio > white_ratio * BLACK_PREFERENCE_MARGIN:
+        replacement, best = (0, 0, 0), black_ratio
+    else:
+        replacement, best = (255, 255, 255), white_ratio
+    if best <= current:
+        return fg, bg
+    logger.debug(
+        f'fg {tuple(int(c) for c in fg)} scores {current:.2f} against canvas '
+        f'{tuple(int(c) for c in canvas)}; using {replacement} ({best:.2f})'
+    )
+    return np.array(replacement, dtype=np.int32), bg
+
 def count_text_length(text: str) -> float:
     """Calculate text length, treating っッぁぃぅぇぉ as 0.5 characters"""
     half_width_chars = 'っッぁぃぅぇぉ'  
@@ -274,6 +332,8 @@ def render(
     disable_font_border
 ):
     fg, bg = region.get_font_colors()
+    fg, bg = ensure_readable_fg(img, dst_points, fg, bg)
+    # runs after the readability override so the border follows the final fill
     fg, bg = fg_bg_compare(fg, bg)
 
     if disable_font_border :
