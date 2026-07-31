@@ -92,6 +92,18 @@ def apply_dictionary(text, dictionary):
             logger.info(f'Line {line_number}: Replaced "{original_text}" with "{text}" using pattern "{pattern.pattern}" and value "{value}"')
     return text
 
+# py3langid reports a language, never a script variant: Chinese always comes back
+# as 'zh' (-> CHS), so a CHT target could never satisfy a plain equality check and
+# every page would burn its full retry budget re-translating correct output.
+LANGUAGE_VARIANT_GROUPS = [
+    {'CHS', 'CHT'},
+]
+
+def _is_same_language(detected: str, target: str) -> bool:
+    if detected == target:
+        return True
+    return any(detected in group and target in group for group in LANGUAGE_VARIANT_GROUPS)
+
 class MangaTranslator:
     verbose: bool
     ignore_errors: bool
@@ -2679,8 +2691,8 @@ class MangaTranslator:
             confidence = -9999
         
         # 检查检测出的语言是否为目标语言
-        is_target_lang = (detected_language == target_lang.upper())
-        
+        is_target_lang = _is_same_language(detected_language, target_lang.upper())
+
         # logger.info(f'Target language check: Detected language "{detected_language}" using py3langid (confidence: {confidence:.3f})')
         # logger.info(f'Target language check: Target is "{target_lang.upper()}"')
         # logger.info(f'Target language check result: {"PASSED" if is_target_lang else "FAILED"}')
